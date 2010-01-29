@@ -1,0 +1,101 @@
+<!DOCTYPE HTML>
+<html lang="ru-RU">
+<head>
+	<meta charset="UTF-8">
+	<title>WS</title>
+	
+	<style type="text/css" media="screen">
+	 .connected {background:orange;}
+	 .user {position:absolute;background:yellow;-webkit-border-radius: 5px;padding:10px;}
+	 #canvas {width:100%;height:300px;background:#123;}
+	</style>
+	
+	<script src='http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js'></script>
+	<script src='/examples/pushr.js'></script>
+	<script type="text/javascript" charset="utf-8">
+	// Custom stuff ::::::::::::::::::::::::::::::::::::::::::::::::::::
+	var debug = function(msg){
+	  $('#status').html(msg);
+	};
+	
+	// Put your own host here! :::::::::::::::::::::::::::::::
+	Pushr.host = "ws://ismasan.local:8080";
+	Pushr.log = function(m){console.log(m);};
+	
+	var line = function(event_type, msg){
+	  var now = new Date();
+	  var d = [now.getHours(), now.getMinutes(), now.getSeconds()].join(':');
+	  $('#message').append("<p class='"+event_type+"'><strong>" + msg.from + " ("+d+"):</strong> " + msg.data + "</p>")
+	};
+	
+	var COLORS = ['yellow', 'aqua', 'pink', 'silver'];
+	var create_user = function(user_name){
+	  var id = 'user_' + user_name;
+	  if($('#'+id).length > 0)return false;
+	  $('body').append("<div class='user' id='"+id+"' style='background-color:"+COLORS[Math.round(Math.random() * COLORS.length)]+"'>" + user_name + "</div>");
+	};
+	
+	var conn;
+	function WS(user){
+	  conn = new Pushr('some-channel', user);
+	  
+	  conn.bind('close', function(){
+ 	    debug('Socket closed');
+ 	  });
+ 	  
+ 	  conn.bind('message', function(msg){
+ 	    console.log(msg);
+ 	    line('message', msg);
+ 	  });
+ 	  
+ 	  conn.bind('user_connected', function(msg){
+ 	    line('connected', msg);
+ 	    create_user(msg.from)
+ 	  });
+ 	  
+ 	  conn.bind('open', function() {
+       debug('Connected')
+    });
+    
+    conn.bind('presence', function(presence){
+      console.log(presence);
+      $('#connections_count').html(presence.connections + ' users connected');
+      $('#current_users').html('');
+      $.each(presence.users, function(i, user){
+        $('#current_users').append("<li>" + user + "</li>");
+      });
+    });
+    
+    conn.bind('mousemove', function(data){
+      create_user(data.from);
+      $('#user_'+ data.from).css({top: data.y + 10, left: data.x + 10});
+    });
+    
+    $(function(){
+       // Broadcast mouse moves!
+        $('#canvas').mousemove(function(evt){
+          conn.trigger('mousemove', {x: evt.clientX, y: evt.clientY});
+        });
+    });
+   
+	}
+	</script>
+</head>
+<body>
+  <input type="text" value="" id="user" placeholder="User name" />
+  <input type="submit" id="button" value="Connect!" onclick="WS($('#user').val())" /><br />
+  <input type="text" id="input" value="" placeholder="Message" />
+  <input type="submit" onclick="conn.send($('#input').val())" value="Send">
+  
+  <div id="message">No message</div>
+  
+  <div id="status">Not connected</div>
+  
+  <div id="presence">
+    <h4 id="connections_count">No users connected</h4>
+    <ul id="current_users"></ul>
+  </div>
+  
+  <div id="canvas"></div>
+</body>
+</html>
